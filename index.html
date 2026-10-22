@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#087443">
+  <meta name="description" content="Fix Forward campus facility maintenance reporting demo.">
+  <title>Fix Forward | Campus Maintenance</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <section id="loginScreen" class="login-screen" aria-label="Sign in to Fix Forward">
+    <div class="login-photo" role="img" aria-label="Campus building photograph">
+      <div class="photo-overlay"></div>
+      <div class="login-copy">
+        <a class="brand brand-light" href="#" aria-label="Fix Forward home"><span class="brand-mark">FF</span><span>Fix Forward<small>Campus care, made trackable</small></span></a>
+        <p class="eyebrow">CAMPUS FACILITY CARE</p>
+        <h1>Small fixes.<br><span>Better campus.</span></h1>
+        <p>Report a maintenance issue, follow its progress, and help keep your campus safe and welcoming.</p>
+        <div class="login-tags"><span>✓ Report issues</span><span>↗ Track progress</span><span>✦ Support your campus</span></div>
+      </div>
+      <span class="photo-credit">Fix Forward · Campus maintenance demo</span>
+    </div>
+    <div class="login-panel">
+      <button class="icon-button login-theme" data-action="theme" aria-label="Toggle dark mode" title="Toggle dark mode">☾</button>
+      <div class="login-card">
+        <div class="brand-mark brand-mark-large">FF</div>
+        <p class="eyebrow">WELCOME BACK</p>
+        <h2>Sign in to Fix Forward</h2>
+        <p class="muted">Campus Facility Maintenance Reporting System</p>
+        <div class="role-tabs" role="group" aria-label="Choose demo role">
+          <button class="role-tab active" data-role="student">Student</button>
+          <button class="role-tab" data-role="staff">Maintenance staff</button>
+          <button class="role-tab" data-role="admin">Administrator</button>
+        </div>
+        <form id="loginForm" novalidate>
+          <label for="loginEmail">Email address</label>
+          <input id="loginEmail" type="email" autocomplete="username" placeholder="student@fixforward.demo" required>
+          <label for="loginPassword">Password</label>
+          <div class="password-wrap"><input id="loginPassword" type="password" autocomplete="current-password" placeholder="Enter your password" required><button type="button" data-action="toggle-password" aria-label="Show password">Show</button></div>
+          <div class="login-options"><label class="remember"><input id="rememberMe" type="checkbox"> Remember me</label><button class="text-button" type="button" data-action="reset-password">Forgot password?</button></div>
+          <p id="loginError" class="form-error" role="alert" hidden></p>
+          <button class="button button-primary button-wide" type="submit">Sign In</button>
+          <button class="button button-outline button-wide" type="button" data-action="register">Create an Account</button>
+          <button class="button button-quiet button-wide" type="button" data-action="guest">Continue as Guest</button>
+        </form>
+        <div class="divider"><span>DEMO ACCESS</span></div>
+        <p class="demo-caption">Choose a role to explore using clearly labeled demo data.</p>
+        <div class="demo-buttons">
+          <button data-action="demo" data-role="student">Student demo</button>
+          <button data-action="demo" data-role="staff">Maintenance staff demo</button>
+          <button data-action="demo" data-role="admin">Administrator demo</button>
+        </div>
+        <p class="login-footnote">Demo only — no real authentication or campus connection. Never enter a real password or sensitive information.</p>
+      </div>
+    </div>
+  </section>
+
+  <div id="app" class="app-shell" hidden>
+    <aside id="sidebar" class="sidebar">
+      <a class="brand sidebar-brand" href="#" data-page-link="dashboard"><span class="brand-mark">FF</span><span>Fix Forward<small>Campus maintenance</small></span></a>
+      <div id="sidebarNav" class="sidebar-nav"></div>
+      <div class="sidebar-bottom">
+        <div class="demo-label"><span class="status-dot"></span> Local demo environment</div>
+        <button class="nav-item" data-page="profile"><span class="nav-icon">⚙</span><span>Profile & settings</span></button>
+        <button class="nav-item" data-action="logout"><span class="nav-icon">↪</span><span>Sign out</span></button>
+      </div>
+    </aside>
+    <main class="main-shell">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="icon-button menu-toggle" data-action="sidebar" aria-label="Toggle navigation">☰</button>
+          <div><p class="eyebrow" id="pageEyebrow">OVERVIEW</p><h1 id="pageTitle">Dashboard</h1></div>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-button" data-action="theme" aria-label="Toggle dark mode" title="Toggle dark mode">☾</button>
+          <button class="icon-button notification-trigger" data-page="notifications" aria-label="Notifications">♧<span id="notificationBadge" class="notification-badge" hidden></span></button>
+          <button class="profile-trigger" data-page="profile"><span class="avatar" id="userAvatar">S</span><span><strong id="userName">Student</strong><small id="userRole">Student</small></span><span class="chevron">⌄</span></button>
+        </div>
+      </header>
+      <div id="pageContent" class="page-content" tabindex="-1"></div>
+      <footer class="app-footer"><span>© 2026 Fix Forward · Student project prototype</span><span><a href="privacy.html" target="_blank" rel="noreferrer">Privacy policy</a><span> · </span>Local browser data only</span></footer>
+    </main>
+  </div>
+  <dialog id="modal" class="modal"><div id="modalContent"></div></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="script.js"></script>
+</body>
+</html>
