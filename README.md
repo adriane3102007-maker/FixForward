@@ -19,8 +19,8 @@ This is a single-browser demo, not a production maintenance or authentication sy
 
 ## Publish with GitHub Pages
 1. Create a public GitHub repository.
-2. Upload `index.html`, `styles.css`, `script.js`, `privacy.html`, and `README.md` to the repository root.
+2. Upload `index.html`, `styles.css`, `script.js`, `privacy.html`, `README.md`, and the complete `assets/` folder to the repository root.
 3. Go to Settings → Pages; select deploy from a branch, choose `main` and `/ (root)`, then save.
 4. Wait for the published URL to appear, then test the live site on desktop and mobile.
-5. Update the Privacy Policy contact placeholder before submitting your project.
+5. Confirm the Privacy Policy contact route and add a monitored project email address before public use, if available.
 6. Use real screenshots and the actual published URL in your final report.

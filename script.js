@@ -500,14 +500,15 @@
       case 'register':
         openModal('Create a demo profile', `<p>This form previews registration only. The password is checked but never saved; this demo does not create a secure account.</p><label>Your name<input name="name" required maxlength="80"></label><label>Email address<input name="email" required type="email" maxlength="120"></label><label>Password<input name="password" type="password" required minlength="8" autocomplete="new-password"></label><label>Confirm password<input name="confirmPassword" type="password" required minlength="8" autocomplete="new-password"></label><p class="form-error" id="registerError" hidden></p><div class="modal-actions"><button class="button button-outline" type="button" data-action="close-modal">Cancel</button><button class="button button-primary" type="submit">Continue as student</button></div>`, data => {
           const name = String(data.get('name')).trim();
-          const email = String(data.get('email')).trim();
+          const email = String(data.get('email')).trim().toLowerCase();
           const password = String(data.get('password'));
           const confirmPassword = String(data.get('confirmPassword'));
           if (!name || !email || !email.includes('@') || password.length < 8) { $('#registerError').textContent = 'Enter a name, valid email, and password with at least 8 characters.'; $('#registerError').hidden = false; return; }
           if (password !== confirmPassword) { $('#registerError').textContent = 'The password confirmation does not match.'; $('#registerError').hidden = false; return; }
+          if (state.users.some(user => user.email.trim().toLowerCase() === email)) { $('#registerError').textContent = 'A demo profile already uses this email. Sign in with it instead.'; $('#registerError').hidden = false; return; }
           const profile = { id: `profile-${Date.now()}`, name, email, role: 'student' };
           state.users.push(profile);
-          if (!saveData()) return;
+          if (!saveData()) { state.users.pop(); return; }
           $('#modal').close();
           startSession(profile.role, profile.name, profile.email, profile.id);
         });
@@ -550,10 +551,12 @@
       const label = submitButton?.textContent || 'Sign In';
       if (submitButton) { submitButton.disabled = true; submitButton.textContent = 'Signing in…'; }
       const role = $('.role-tab.active')?.dataset.role || 'student';
-      const profile = { student: ['Alex Morgan', 'student@fixforward.demo', 'student-demo'], staff: ['Jordan Lee', 'staff@fixforward.demo', 'staff-demo'], admin: ['Taylor Admin', 'admin@fixforward.demo', 'admin-demo'] }[role];
+      const savedProfile = state.users.find(user => user.email.trim().toLowerCase() === email.toLowerCase());
+      const demoProfile = { student: ['Alex Morgan', 'student@fixforward.demo', 'student-demo'], staff: ['Jordan Lee', 'staff@fixforward.demo', 'staff-demo'], admin: ['Taylor Admin', 'admin@fixforward.demo', 'admin-demo'] }[role];
       setTimeout(() => {
         if (submitButton) { submitButton.disabled = false; submitButton.textContent = label; }
-        startSession(role, ...profile);
+        if (savedProfile) startSession(savedProfile.role, savedProfile.name, savedProfile.email, savedProfile.id);
+        else startSession(role, ...demoProfile);
       }, 450);
     } else if (event.target.id === 'reportForm') {
       event.preventDefault();
