@@ -3,8 +3,21 @@
 
   const STORAGE_KEY = 'fixforward_app_v2';
   const STATUSES = ['Pending', 'Under Review', 'Approved', 'In Progress', 'On Hold', 'Resolved', 'Rejected'];
+  const STATUS_TRANSITIONS = {
+    Pending: ['Under Review', 'Rejected'],
+    'Under Review': ['Approved', 'On Hold', 'Rejected'],
+    Approved: ['In Progress', 'On Hold', 'Rejected'],
+    'In Progress': ['On Hold', 'Resolved'],
+    'On Hold': ['In Progress', 'Rejected'],
+    Resolved: [],
+    Rejected: []
+  };
   const CATEGORIES = ['Electrical', 'Plumbing', 'Air Conditioning and Ventilation', 'Furniture and Fixtures', 'Structural Damage', 'Internet and Connectivity', 'Cleaning and Sanitation', 'Other'];
   const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
+  const LOCATION_OPTIONS = {
+    'Main Building': ['Comlab 1', 'Comlab 2', 'Comlab 3', 'Comlab 4', 'Comlab 5', 'Digital Lab', 'Ergonomics Lab', 'Electronics Lab', ...Array.from({ length: 22 }, (_, index) => `Room ${301 + index}`)],
+    'BCH Building': Array.from({ length: 5 }, (_, floor) => Array.from({ length: 9 }, (_, room) => `BCH ${((floor + 1) * 100) + 101 + room}`)).flat()
+  };
   const ROLE_NAMES = { student: 'Student', staff: 'Maintenance staff', admin: 'Administrator', guest: 'Guest' };
   const SAMPLE_REPORTS = [
     { id: 'FF-2026-1001', title: 'Leaking faucet near the wash area', category: 'Plumbing', facility: 'Main Building', location: 'Ground Floor · Wash Area', description: 'Water keeps dripping even when the faucet is closed. The floor may become slippery.', priority: 'High', status: 'Pending', date: '2026-10-20T09:40:00.000Z', reporterId: 'student-demo', reporter: 'Alex Morgan', assignedTo: '', photo: '', resolution: '', activity: [{ type: 'created', text: 'Request submitted', date: '2026-10-20T09:40:00.000Z' }] },
@@ -17,7 +30,7 @@
     { id: 'FF-2026-1008', title: 'Damaged stair handrail', category: 'Structural Damage', facility: 'West Hall', location: 'Second floor stairwell', description: 'The handrail is loose where it meets the wall.', priority: 'Urgent', status: 'Pending', date: '2026-10-21T10:35:00.000Z', reporterId: 'other-student', reporter: 'Campus reporter', assignedTo: '', photo: '', resolution: '', activity: [{ type: 'created', text: 'Request submitted', date: '2026-10-21T10:35:00.000Z' }] }
   ];
 
-  const state = { reports: [], notifications: [], users: [], preferences: {}, user: null, page: 'dashboard', requestId: '', query: '', statusFilter: 'All statuses', priorityFilter: 'All priorities', categoryFilter: 'All categories', sort: 'newest', pageNumber: 1, analyticsRange: 'all', pendingPhoto: '' };
+  const state = { reports: [], notifications: [], users: [], preferences: {}, user: null, page: 'dashboard', requestId: '', query: '', statusFilter: 'All statuses', priorityFilter: 'All priorities', categoryFilter: 'All categories', buildingFilter: 'All buildings', locationFilter: 'All locations', sort: 'newest', pageNumber: 1, analyticsRange: 'all', pendingPhoto: '' };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -172,7 +185,7 @@
     return `<div class="page-intro"><div><p class="eyebrow">NEW MAINTENANCE REQUEST</p><h2>Tell us what needs fixing</h2><p>Provide an accurate location and clear details to help maintenance personnel resolve the issue.</p></div></div>
       <div class="form-layout"><form class="card request-form" id="reportForm" novalidate>
         <div class="form-section-title"><span>01</span><div><h3>Problem details</h3><p>Describe the issue and where it is happening.</p></div></div>
-        <div class="field-grid"><label>Facility or building <span class="required">*</span><input name="facility" required maxlength="90" placeholder="e.g. Main Building"></label><label>Room or specific location <span class="required">*</span><input name="location" required maxlength="100" placeholder="e.g. Room 204, second floor"></label></div>
+        <div class="field-grid"><label>Facility or building <span class="required">*</span><select name="facility" id="reportFacility" required><option value="">Choose building</option>${Object.keys(LOCATION_OPTIONS).map(item => `<option>${esc(item)}</option>`).join('')}</select></label><label>Room or specific location <span class="required">*</span><select name="location" id="reportLocation" required disabled><option value="">Choose a building first</option></select></label></div>
         <label>Problem title <span class="required">*</span><input name="title" required maxlength="90" placeholder="A short summary of the issue"></label>
         <div class="field-grid"><label>Problem category <span class="required">*</span><select name="category" required><option value="">Choose category</option>${CATEGORIES.map(item => `<option>${esc(item)}</option>`).join('')}</select></label><label>Priority <span class="required">*</span><select name="priority" required>${PRIORITIES.map(item => `<option ${item === 'Medium' ? 'selected' : ''}>${item}</option>`).join('')}</select></label></div>
         <label>Detailed description <span class="required">*</span><textarea name="description" required maxlength="900" rows="5" placeholder="What happened? When did you notice it? Include any details that may help locate or understand the problem."></textarea></label>
@@ -189,6 +202,8 @@
     if (assignedOnly) reports = reports.filter(report => report.assignedTo === state.user.name);
     const query = state.query.trim().toLowerCase();
     reports = reports.filter(report => (!query || [report.id, report.title, report.description, report.facility, report.location, report.category].join(' ').toLowerCase().includes(query))
+      && (state.buildingFilter === 'All buildings' || report.facility === state.buildingFilter)
+      && (state.locationFilter === 'All locations' || report.location === state.locationFilter)
       && (state.statusFilter === 'All statuses' || report.status === state.statusFilter)
       && (state.priorityFilter === 'All priorities' || report.priority === state.priorityFilter)
       && (state.categoryFilter === 'All categories' || report.category === state.categoryFilter));
@@ -202,10 +217,11 @@
     const pageCount = Math.max(1, Math.ceil(reports.length / pageSize));
     state.pageNumber = Math.min(state.pageNumber, pageCount);
     const visible = reports.slice((state.pageNumber - 1) * pageSize, state.pageNumber * pageSize);
+    const hasActiveFilters = Boolean(state.query || state.statusFilter !== 'All statuses' || state.priorityFilter !== 'All priorities' || state.categoryFilter !== 'All categories' || state.buildingFilter !== 'All buildings' || state.locationFilter !== 'All locations');
     const title = assignedOnly ? 'Tasks assigned to you' : manage ? 'Review and manage authorized maintenance requests.' : state.user.role === 'guest' ? 'Public demo requests · reporter details are not shown.' : 'Track the progress of your submitted maintenance reports.';
     return `<div class="page-intro page-intro-row"><div><p class="eyebrow">${manage ? 'MAINTENANCE WORKSPACE' : 'REQUEST TRACKER'}</p><h2>${PAGE_TITLES[state.page]}</h2><p>${title}</p></div>${state.user.role !== 'guest' ? `<button class="button button-primary" data-page="report">＋ Create Request</button>` : ''}</div>
-      <section class="card table-card"><div class="filter-bar"><label class="search-field"><span>⌕</span><input id="requestSearch" value="${esc(state.query)}" aria-label="Search requests" placeholder="Search ID, building, title or description"></label><select data-filter="status" aria-label="Filter by status"><option>All statuses</option>${STATUSES.map(item => `<option ${item === state.statusFilter ? 'selected' : ''}>${item}</option>`).join('')}</select><select data-filter="priority" aria-label="Filter by priority"><option>All priorities</option>${PRIORITIES.map(item => `<option ${item === state.priorityFilter ? 'selected' : ''}>${item}</option>`).join('')}</select><select data-filter="category" aria-label="Filter by category"><option>All categories</option>${CATEGORIES.map(item => `<option ${item === state.categoryFilter ? 'selected' : ''}>${esc(item)}</option>`).join('')}</select><select data-filter="sort" aria-label="Sort requests"><option value="newest" ${state.sort === 'newest' ? 'selected' : ''}>Newest first</option><option value="oldest" ${state.sort === 'oldest' ? 'selected' : ''}>Oldest first</option><option value="priority-high" ${state.sort === 'priority-high' ? 'selected' : ''}>Priority: urgent first</option><option value="status" ${state.sort === 'status' ? 'selected' : ''}>Status order</option></select></div>
-      ${visible.length ? `<div class="table-wrap"><table><thead><tr><th>REQUEST</th><th>FACILITY / LOCATION</th><th>CATEGORY</th><th>PRIORITY</th><th>DATE REPORTED</th>${manage ? '<th>ASSIGNED STAFF</th>' : ''}<th>STATUS</th><th>ACTION</th></tr></thead><tbody>${visible.map(report => requestRow(report, manage)).join('')}</tbody></table></div><div class="table-footer"><span>Showing ${Math.min(reports.length, (state.pageNumber - 1) * pageSize + 1)}–${Math.min(reports.length, state.pageNumber * pageSize)} of ${reports.length} requests</span><div class="pagination"><button data-action="page-back" ${state.pageNumber <= 1 ? 'disabled' : ''}>← Previous</button><span>Page ${state.pageNumber} of ${pageCount}</span><button data-action="page-forward" ${state.pageNumber >= pageCount ? 'disabled' : ''}>Next →</button></div></div>` : emptyState(state.query || state.statusFilter !== 'All statuses' ? 'No matching requests' : 'No requests yet', state.query || state.statusFilter !== 'All statuses' ? 'Try changing your search or filters.' : 'Submit a maintenance report to start tracking its progress.', state.user.role !== 'guest' ? '<button class="button button-primary" data-page="report">Report a Problem</button>' : '')}
+      <section class="card table-card"><div class="filter-bar"><label class="search-field"><span>⌕</span><input id="requestSearch" value="${esc(state.query)}" aria-label="Search requests" placeholder="Search ID, building, title or description"></label><select data-filter="building" aria-label="Filter by building"><option>All buildings</option>${Object.keys(LOCATION_OPTIONS).map(item => `<option ${item === state.buildingFilter ? 'selected' : ''}>${esc(item)}</option>`).join('')}</select><select data-filter="location" aria-label="Filter by location"><option>All locations</option>${[...new Set([...reports.map(item => item.location), state.locationFilter !== 'All locations' ? state.locationFilter : ''])].filter(Boolean).sort().map(item => `<option ${item === state.locationFilter ? 'selected' : ''}>${esc(item)}</option>`).join('')}</select><select data-filter="status" aria-label="Filter by status"><option>All statuses</option>${STATUSES.map(item => `<option ${item === state.statusFilter ? 'selected' : ''}>${item}</option>`).join('')}</select><select data-filter="priority" aria-label="Filter by priority"><option>All priorities</option>${PRIORITIES.map(item => `<option ${item === state.priorityFilter ? 'selected' : ''}>${item}</option>`).join('')}</select><select data-filter="category" aria-label="Filter by category"><option>All categories</option>${CATEGORIES.map(item => `<option ${item === state.categoryFilter ? 'selected' : ''}>${esc(item)}</option>`).join('')}</select><select data-filter="sort" aria-label="Sort requests"><option value="newest" ${state.sort === 'newest' ? 'selected' : ''}>Newest first</option><option value="oldest" ${state.sort === 'oldest' ? 'selected' : ''}>Oldest first</option><option value="priority-high" ${state.sort === 'priority-high' ? 'selected' : ''}>Priority: urgent first</option><option value="status" ${state.sort === 'status' ? 'selected' : ''}>Status order</option></select>${hasActiveFilters ? '<button class="text-button" data-action="clear-filters">Clear filters</button>' : ''}</div>
+      ${visible.length ? `<div class="table-wrap"><table><thead><tr><th>REQUEST</th><th>FACILITY / LOCATION</th><th>CATEGORY</th><th>PRIORITY</th><th>DATE REPORTED</th>${manage ? '<th>ASSIGNED STAFF</th>' : ''}<th>STATUS</th><th>ACTION</th></tr></thead><tbody>${visible.map(report => requestRow(report, manage)).join('')}</tbody></table></div><div class="table-footer"><span>Showing ${Math.min(reports.length, (state.pageNumber - 1) * pageSize + 1)}–${Math.min(reports.length, state.pageNumber * pageSize)} of ${reports.length} requests</span><div class="pagination"><button data-action="page-back" ${state.pageNumber <= 1 ? 'disabled' : ''}>← Previous</button><span>Page ${state.pageNumber} of ${pageCount}</span><button data-action="page-forward" ${state.pageNumber >= pageCount ? 'disabled' : ''}>Next →</button></div></div>` : emptyState(hasActiveFilters ? 'No matching requests' : 'No requests yet', hasActiveFilters ? 'Try changing your search or filters.' : 'Submit a maintenance report to start tracking its progress.', hasActiveFilters ? '<button class="button button-outline" data-action="clear-filters">Clear filters</button>' : state.user.role !== 'guest' ? '<button class="button button-primary" data-page="report">Report a Problem</button>' : '')}
       </section>`;
   }
 
@@ -219,7 +235,7 @@
     const canManage = isAdmin() || (state.user.role === 'staff' && (!report.assignedTo || report.assignedTo === state.user.name));
     return `<div class="page-intro page-intro-row"><div><button class="text-button back-link" data-page="${isStaff() ? 'all-requests' : 'requests'}">← Back to requests</button><p class="eyebrow">REQUEST ${esc(report.id)}</p><h2>${esc(report.title)}</h2><p>Submitted ${dateText(report.date)}</p></div><span class="status-badge ${statusClass(report.status)} status-large">${esc(report.status)}</span></div>
       <div class="details-layout"><div class="details-main"><section class="card details-card"><div class="card-heading"><div><p class="eyebrow">REQUEST DETAILS</p><h3>Problem information</h3></div><span class="priority-badge ${report.priority.toLowerCase()}">${report.priority} priority</span></div><p class="details-description">${esc(report.description)}</p><div class="detail-grid"><div><small>FACILITY</small><strong>${esc(report.facility)}</strong></div><div><small>LOCATION</small><strong>${esc(report.location)}</strong></div><div><small>CATEGORY</small><strong>${esc(report.category)}</strong></div><div><small>REPORTED BY</small><strong>${state.user.role === 'guest' ? 'Campus reporter' : esc(report.reporter)}</strong></div><div><small>ASSIGNED STAFF</small><strong>${esc(report.assignedTo || 'Not yet assigned')}</strong></div><div><small>CONTACT</small><strong>${state.user.role === 'student' && report.reporterId === state.user.id ? esc(report.contact || 'Not provided') : 'Private'}</strong></div></div>${report.photo ? `<img class="details-photo" src="${report.photo}" alt="Photo attached to ${esc(report.id)}">` : ''}${report.resolution ? `<div class="resolution-note"><strong>Resolution notes</strong><p>${esc(report.resolution)}</p></div>` : ''}</section>
-      ${canManage ? `<section class="card staff-update"><p class="eyebrow">STAFF WORKSPACE</p><h3>Update this request</h3><form id="updateForm" data-id="${esc(report.id)}"><label>Request status<select name="status">${(isAdmin() ? STATUSES : staffNextStatuses(report.status)).map(item => `<option ${item === report.status ? 'selected' : ''}>${item}</option>`).join('')}</select></label><label>Progress note or resolution summary<textarea name="note" rows="3" placeholder="${report.status === 'Resolved' ? 'A resolution summary is required.' : 'Add an update for the requester.'}">${esc(report.resolution)}</textarea></label><button class="button button-primary" type="submit">Save Update</button></form></section>` : ''}
+      ${canManage ? `<section class="card staff-update"><p class="eyebrow">STAFF WORKSPACE</p><h3>Update this request</h3><form id="updateForm" data-id="${esc(report.id)}"><label>Request status<select name="status">${[report.status, ...staffNextStatuses(report.status)].map(item => `<option ${item === report.status ? 'selected' : ''}>${item}</option>`).join('')}</select></label><label>Progress note or resolution summary<textarea name="note" rows="3" placeholder="${report.status === 'Resolved' ? 'A resolution summary is required.' : 'Add an update for the requester.'}">${esc(report.resolution)}</textarea></label><button class="button button-primary" type="submit">Save Update</button></form></section>` : ''}
       <section class="card comments-card"><p class="eyebrow">ACTIVITY</p><h3>Request timeline</h3><div class="timeline">${[...report.activity].sort((a, b) => new Date(b.date) - new Date(a.date)).map(item => `<div class="timeline-item"><span></span><div><strong>${esc(item.text)}</strong><small>${dateText(item.date)}${item.actor ? ` · ${esc(item.actor)}` : ''}</small>${item.note ? `<p>${esc(item.note)}</p>` : ''}</div></div>`).join('')}</div></section></div>
       <aside class="details-aside"><section class="card progress-card"><p class="eyebrow">LIFECYCLE</p><h3>Request progress</h3>${renderProgress(report.status)}</section><section class="card safety-note"><strong>Demo information</strong><p>Status changes and notifications are stored in this browser only. In the real system, authorized staff would receive this request.</p></section></aside></div>`;
   }
@@ -232,16 +248,7 @@
   }
 
   function staffNextStatuses(status) {
-    const transitions = {
-      Pending: ['Pending', 'Under Review'],
-      'Under Review': ['Under Review', 'In Progress', 'On Hold'],
-      Approved: ['Approved', 'In Progress', 'On Hold'],
-      'In Progress': ['In Progress', 'On Hold', 'Resolved'],
-      'On Hold': ['On Hold', 'In Progress', 'Resolved'],
-      Resolved: ['Resolved'],
-      Rejected: ['Rejected']
-    };
-    return transitions[status] || [status];
+    return STATUS_TRANSITIONS[status] || [];
   }
 
   function renderNotifications() {
@@ -317,14 +324,38 @@
       form.elements[missing[0]].focus();
       return;
     }
+    const facility = String(data.get('facility')).trim();
+    const location = String(data.get('location')).trim();
+    if (!LOCATION_OPTIONS[facility]?.includes(location)) {
+      error.textContent = 'Choose a location that belongs to the selected building.';
+      error.hidden = false;
+      form.elements.location.focus();
+      return;
+    }
+    const title = String(data.get('title')).trim();
+    const description = String(data.get('description')).trim();
+    const category = String(data.get('category'));
+    const priority = String(data.get('priority'));
+    if (!CATEGORIES.includes(category) || !PRIORITIES.includes(priority)) {
+      error.textContent = 'Choose a valid maintenance category and priority.';
+      error.hidden = false;
+      form.elements[!CATEGORIES.includes(category) ? 'category' : 'priority'].focus();
+      return;
+    }
+    if (!title || !description) {
+      error.textContent = 'Title and description must contain more than spaces.';
+      error.hidden = false;
+      form.elements[!title ? 'title' : 'description'].focus();
+      return;
+    }
     const report = {
       id: newRequestId(),
-      facility: String(data.get('facility')).trim(),
-      location: String(data.get('location')).trim(),
-      title: String(data.get('title')).trim(),
-      category: String(data.get('category')),
-      priority: String(data.get('priority')),
-      description: String(data.get('description')).trim(),
+      facility,
+      location,
+      title,
+      category,
+      priority,
+      description,
       contact: String(data.get('contact') || '').trim(),
       reporterId: state.user.id,
       reporter: state.user.name,
@@ -336,9 +367,14 @@
       activity: [{ type: 'created', text: 'Request submitted', date: new Date().toISOString(), actor: state.user.name }]
     };
     openModal('Confirm request submission', `<p>Submit <strong>${esc(report.title)}</strong> at <strong>${esc(report.facility)} · ${esc(report.location)}</strong>?</p><p class="modal-hint">This report will be stored in this browser only; it will not be delivered to campus staff.</p><div class="modal-actions"><button class="button button-outline" type="button" data-action="close-modal">Review details</button><button class="button button-primary" type="submit">Submit request</button></div>`, () => {
+      const previousNotifications = [...state.notifications];
       state.reports.unshift(report);
       notify(state.user.id, 'Request submitted', `${report.id} — ${report.title} is now pending review.`, report.id);
-      if (!saveData()) return;
+      if (!saveData()) {
+        state.reports.shift();
+        state.notifications = previousNotifications;
+        return;
+      }
       $('#modal').close();
       state.pendingPhoto = '';
       state.page = 'details';
@@ -359,11 +395,19 @@
   function updateRequest(form) {
     const report = state.reports.find(item => item.id === form.dataset.id);
     if (!report) return;
+    if (!isStaff() || (state.user.role === 'staff' && report.assignedTo && report.assignedTo !== state.user.name)) {
+      toast('You are not authorized to update this request in the current demo role.');
+      return;
+    }
     const data = new FormData(form);
     const status = String(data.get('status'));
     const note = String(data.get('note') || '').trim();
-    if (status === 'Resolved' && !note) {
-      toast('A resolution summary is required before resolving this request.');
+    if (status !== report.status && !STATUS_TRANSITIONS[report.status]?.includes(status)) {
+      toast(`This request cannot move from ${report.status} to ${status}.`);
+      return;
+    }
+    if (status === 'Resolved' && note.length < 12) {
+      toast('Add a meaningful resolution summary of at least 12 characters before resolving.');
       form.elements.note.focus();
       return;
     }
@@ -376,6 +420,8 @@
       toast('Choose a new status or add a progress note before saving.');
       return;
     }
+    const previousReport = JSON.parse(JSON.stringify(report));
+    const previousNotifications = [...state.notifications];
     if (status !== report.status) {
       report.status = status;
       report.activity.push({ type: 'status', text: `Status changed to ${status}`, date: new Date().toISOString(), actor: state.user.name, note });
@@ -385,7 +431,11 @@
       notify(report.reporterId, 'New request update', `${report.id} — staff added a progress note.`, report.id);
     }
     if (status === 'Resolved') report.resolution = note;
-    if (!saveData()) return;
+    if (!saveData()) {
+      Object.assign(report, previousReport);
+      state.notifications = previousNotifications;
+      return;
+    }
     render();
     toast('Request update saved in this browser.');
   }
@@ -397,6 +447,8 @@
   function assignRequest(id, name) {
     const report = state.reports.find(item => item.id === id);
     if (!report) return;
+    const previousReport = JSON.parse(JSON.stringify(report));
+    const previousNotifications = [...state.notifications];
     report.assignedTo = name;
     report.activity.push({ type: 'assignment', text: name ? `Assigned to ${name}` : 'Assignment removed', date: new Date().toISOString(), actor: state.user.name });
     notify(report.reporterId, name ? 'Maintenance staff assigned' : 'Assignment updated', name ? `${report.id} is assigned to ${name}.` : `${report.id} is no longer assigned.`, report.id);
@@ -404,7 +456,11 @@
       const staffUser = name === 'Jordan Lee' ? { id: 'staff-demo' } : state.users.find(user => user.role === 'staff' && user.name === name);
       if (staffUser) notify(staffUser.id, 'New task assigned', `${report.id} — ${report.title}`, report.id);
     }
-    if (!saveData()) return;
+    if (!saveData()) {
+      Object.assign(report, previousReport);
+      state.notifications = previousNotifications;
+      return;
+    }
     render();
     toast('Assignment updated.');
   }
@@ -441,6 +497,8 @@
     state.statusFilter = 'All statuses';
     state.priorityFilter = 'All priorities';
     state.categoryFilter = 'All categories';
+    state.buildingFilter = 'All buildings';
+    state.locationFilter = 'All locations';
     state.sort = 'newest';
     state.pageNumber = 1;
   }
@@ -460,8 +518,11 @@
     if (button.dataset.open) { openDetails(button.dataset.open); return; }
     if (button.dataset.read) {
       const item = state.notifications.find(notification => notification.id === button.dataset.read);
-      if (item) item.read = true;
-      saveData(); render(); return;
+      if (item && !item.read) {
+        item.read = true;
+        if (!saveData()) item.read = false;
+      }
+      render(); return;
     }
     switch (button.dataset.action) {
       case 'demo': {
@@ -517,10 +578,17 @@
       case 'remove-photo': state.pendingPhoto = ''; $('#photoPreview').innerHTML = ''; $('#photoPreview').hidden = true; $('#photoInput').value = ''; break;
       case 'sidebar': $('#sidebar').classList.toggle('mobile-open'); break;
       case 'mark-all':
-        state.notifications.forEach(item => { if (item.userId === state.user.id) item.read = true; });
-        saveData(); render(); toast('Notifications marked as read.'); break;
+        {
+          const unread = state.notifications.filter(item => item.userId === state.user.id && !item.read);
+          unread.forEach(item => { item.read = true; });
+          if (saveData()) toast('Notifications marked as read.');
+          else unread.forEach(item => { item.read = false; });
+          render();
+          break;
+        }
       case 'page-back': state.pageNumber = Math.max(1, state.pageNumber - 1); render(); break;
       case 'page-forward': state.pageNumber += 1; render(); break;
+      case 'clear-filters': resetFilters(); render(); break;
       case 'export': exportCSV(); break;
       case 'reset-data':
         openModal('Restore sample data?', `<p>This replaces local requests, profiles, and notifications with the original demo dataset. This cannot be undone.</p><div class="modal-actions"><button class="button button-outline" type="button" data-action="close-modal">Cancel</button><button class="button button-danger" type="button" data-action="confirm-reset">Restore sample data</button></div>`);
@@ -570,11 +638,17 @@
       const name = String(data.get('name')).trim();
       const email = String(data.get('email')).trim();
       if (!name || !email || !email.includes('@')) { toast('Enter a valid name and email address.'); return; }
+      const previousUser = { ...state.user };
       state.user.name = name;
       state.user.email = email;
       const user = state.users.find(item => item.id === state.user.id);
+      const previousProfile = user ? { ...user } : null;
       if (user) { user.name = name; user.email = email; }
       if (saveData()) { render(); toast('Profile saved on this device.'); }
+      else {
+        Object.assign(state.user, previousUser);
+        if (user && previousProfile) Object.assign(user, previousProfile);
+      }
     }
   });
 
@@ -587,11 +661,22 @@
   });
 
   document.addEventListener('change', event => {
-    if (event.target.matches('[data-filter]')) {
+    if (event.target.id === 'reportFacility') {
+      const location = $('#reportLocation');
+      const options = LOCATION_OPTIONS[event.target.value] || [];
+      location.innerHTML = `<option value="">Choose location</option>${options.map(item => `<option>${esc(item)}</option>`).join('')}`;
+      location.disabled = !options.length;
+      if ($('#reportError')) $('#reportError').hidden = true;
+    } else if (event.target.matches('[data-filter]')) {
       const { filter } = event.target.dataset;
       if (filter === 'status') state.statusFilter = event.target.value;
       if (filter === 'priority') state.priorityFilter = event.target.value;
       if (filter === 'category') state.categoryFilter = event.target.value;
+      if (filter === 'building') {
+        state.buildingFilter = event.target.value;
+        state.locationFilter = 'All locations';
+      }
+      if (filter === 'location') state.locationFilter = event.target.value;
       if (filter === 'sort') state.sort = event.target.value;
       state.pageNumber = 1;
       render();

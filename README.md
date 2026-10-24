@@ -4,12 +4,15 @@ A responsive, dependency-free HTML, CSS, and JavaScript prototype for campus fac
 
 ## Demo features
 - Role-based demo entry for students, maintenance staff, administrators, and guests.
-- Maintenance request form with categories, priorities, location details, image preview, and required-field validation.
+- Maintenance request form with building-specific Main Building and BCH locations, categories, priorities, image preview, and required-field validation.
 - Student request tracking, request details, progress timeline, and local notifications.
-- Staff request review, workflow updates, resolution notes, and assigned task view.
+- Staff request review, valid workflow transitions, resolution notes, and assigned task view.
 - Administrator assignment, user overview, sample-data reset, and request analytics with CSV export.
-- Search, status/category/priority filters, sorting, pagination, notification preferences, dark mode, and responsive layouts.
+- Search, building/location/status/category/priority filters, sorting, pagination, notification preferences, dark mode, and responsive layouts.
 - Sample request records and an in-app Privacy Policy.
+
+## Testing
+See [TESTING.md](./TESTING.md) for executed browser checks, their results, and the current deployment limitation.
 
 ## Run locally
 Open `index.html` in a modern browser. All sample and newly entered data is stored in that browser's local storage.
