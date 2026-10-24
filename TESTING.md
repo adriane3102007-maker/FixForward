@@ -20,6 +20,7 @@
 | 12 | Desktop and mobile layouts avoid horizontal page overflow. | Pass | Checked document width at desktop and at 390 px on the request-list screen. |
 | 13 | Every navigation link and interactive control works. | Not Tested | Only controls involved in the listed workflows were exercised; a complete control-by-control audit remains. |
 | 14 | Published GitHub Pages build includes the latest changes and all assets. | Fail | The published site loaded, but the campus image request returned HTTP 404. The published login page also did not contain the new Privacy Policy link. Local changes have not been committed or published from this workspace. |
+| 15 | Student, maintenance, and administrator demo profiles keep their selected role when created. | Pass | Created a temporary profile for each role; confirmed the role displayed in the active session and was saved with that profile, then restored prior browser data. |
 
 ## Scope and limitations
 

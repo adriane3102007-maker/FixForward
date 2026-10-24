@@ -559,21 +559,27 @@
         });
         break;
       case 'register':
-        openModal('Create a demo profile', `<p>This form previews registration only. The password is checked but never saved; this demo does not create a secure account.</p><label>Your name<input name="name" required maxlength="80"></label><label>Email address<input name="email" required type="email" maxlength="120"></label><label>Password<input name="password" type="password" required minlength="8" autocomplete="new-password"></label><label>Confirm password<input name="confirmPassword" type="password" required minlength="8" autocomplete="new-password"></label><p class="form-error" id="registerError" hidden></p><div class="modal-actions"><button class="button button-outline" type="button" data-action="close-modal">Cancel</button><button class="button button-primary" type="submit">Continue as student</button></div>`, data => {
+        {
+          const selectedRole = $('.role-tab.active')?.dataset.role || 'student';
+          const roles = [['student', 'Student'], ['staff', 'Maintenance staff'], ['admin', 'Administrator']];
+          openModal('Create a demo profile', `<p>This creates a local demo profile only. The password is checked but never saved. Role selection is for demonstration and does not provide secure access control.</p><label>Your name<input name="name" required maxlength="80"></label><label>Email address<input name="email" required type="email" maxlength="120"></label><label>Demo role<select name="role" required>${roles.map(([value, label]) => `<option value="${value}" ${value === selectedRole ? 'selected' : ''}>${label}</option>`).join('')}</select></label><label>Password<input name="password" type="password" required minlength="8" autocomplete="new-password"></label><label>Confirm password<input name="confirmPassword" type="password" required minlength="8" autocomplete="new-password"></label><p class="form-error" id="registerError" hidden></p><div class="modal-actions"><button class="button button-outline" type="button" data-action="close-modal">Cancel</button><button class="button button-primary" type="submit">Create demo profile</button></div>`, data => {
           const name = String(data.get('name')).trim();
           const email = String(data.get('email')).trim().toLowerCase();
+          const role = String(data.get('role'));
           const password = String(data.get('password'));
           const confirmPassword = String(data.get('confirmPassword'));
           if (!name || !email || !email.includes('@') || password.length < 8) { $('#registerError').textContent = 'Enter a name, valid email, and password with at least 8 characters.'; $('#registerError').hidden = false; return; }
+          if (!roles.some(([value]) => value === role)) { $('#registerError').textContent = 'Choose a valid demo role.'; $('#registerError').hidden = false; return; }
           if (password !== confirmPassword) { $('#registerError').textContent = 'The password confirmation does not match.'; $('#registerError').hidden = false; return; }
           if (state.users.some(user => user.email.trim().toLowerCase() === email)) { $('#registerError').textContent = 'A demo profile already uses this email. Sign in with it instead.'; $('#registerError').hidden = false; return; }
-          const profile = { id: `profile-${Date.now()}`, name, email, role: 'student' };
+          const profile = { id: `profile-${Date.now()}`, name, email, role };
           state.users.push(profile);
           if (!saveData()) { state.users.pop(); return; }
           $('#modal').close();
           startSession(profile.role, profile.name, profile.email, profile.id);
-        });
-        break;
+          });
+          break;
+        }
       case 'close-modal': $('#modal').close(); break;
       case 'remove-photo': state.pendingPhoto = ''; $('#photoPreview').innerHTML = ''; $('#photoPreview').hidden = true; $('#photoInput').value = ''; break;
       case 'sidebar': $('#sidebar').classList.toggle('mobile-open'); break;
